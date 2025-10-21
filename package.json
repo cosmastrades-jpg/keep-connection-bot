@@ -1,0 +1,14 @@
+{
+  "name": "keep-connection-bot",
+  "version": "1.0.0",
+  "description": "Keep Connection - Heroku ready WhatsApp bot (local AI mode)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@bot-whatsapp/bot": "^0.2.1",
+    "@bot-whatsapp/provider/baileys": "^0.2.1",
+    "@bot-whatsapp/database/mock": "^0.2.1"
+  }
+}
