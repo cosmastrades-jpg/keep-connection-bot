@@ -1,22 +1,39 @@
-const { createBot, createProvider, createFlow } = require('@bot-whatsapp/bot')
-const BaileysProvider = require('@bot-whatsapp/provider/baileys')
-const MockAdapter = require('@bot-whatsapp/database/mock')
-const welcomeFlow = require('./flows/red-dragon-welcome')
-const menuFlow = require('./flows/menu-flow')
-const adminFlow = require('./flows/admin-flow')
+const express = require("express");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
+const qrcode = require("qrcode-terminal");
 
-const main = async () => {
-  const adapterDB = new MockAdapter()
-  const adapterFlow = createFlow([welcomeFlow, menuFlow, adminFlow])
-  const adapterProvider = createProvider(BaileysProvider)
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState("./session");
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true,
+  });
 
-  await createBot({
-    flow: adapterFlow,
-    provider: adapterProvider,
-    database: adapterDB,
-  })
+  sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect, qr } = update;
+    if (qr) qrcode.generate(qr, { small: true });
+    if (connection === "close") {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      if (shouldReconnect) startBot();
+    } else if (connection === "open") {
+      console.log("🐉 Keep Connection Bot is running...");
+    }
+  });
 
-  console.log('🐉 Keep Connection Bot is running...')
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.message) return;
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+
+    if (text?.toLowerCase() === "menu") {
+      await sock.sendMessage(msg.key.remoteJid, { text: "👋 Welcome to Keep Connection Bot!\n\nType 'help' for commands." });
+    }
+  });
 }
 
-main()
+startBot();
+
+const app = express();
+app.get("/", (req, res) => res.send("Keep Connection Bot is active ✅"));
+app.listen(process.env.PORT || 10000);
